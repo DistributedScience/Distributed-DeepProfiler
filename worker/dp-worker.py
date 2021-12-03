@@ -1,15 +1,21 @@
 from __future__ import print_function
-import boto3
 import glob
 import json
 import logging
 import os
-import re
 import subprocess
-import sys 
 import time
+
+import boto3
+import numpy
+import pandas
+import scipy.stats
+import skimage.exposure
+import skimage.io
+import skimage.transform
 import watchtower
-import string
+
+from deepprofiler.dataset.utils import Parallel
 
 #################################
 # CONSTANT PATHS IN THE CONTAINER
@@ -73,7 +79,6 @@ class JobQueue():
 # AUXILIARY FUNCTIONS
 #################################
 
-
 def monitorAndLog(process,logger):
     while True:
         output= process.stdout.readline().decode()
@@ -86,6 +91,32 @@ def monitorAndLog(process,logger):
 def printandlog(text,logger):
     print(text)
     logger.info(text)
+
+def loadConfig(configFile):
+    data = None
+    with open(configFile, 'r') as conf:
+        data = json.load(conf)
+    return data
+
+#################################
+# IMAGE PREPROCESSING FUNCTIONS
+#################################
+
+#mostly taken from the DeepProfiler function, we're just batching differently
+def preprocess_image(image_path,illum_file=None, preprocess=True):
+    image = skimage.io.imread(image_path)
+
+    if illum_file != None:
+        illum = numpy.load(illum_file)
+        image = image/illum
+    if preprocess:
+        vmin, vmax = scipy.stats.scoreatpercentile(image, (0.05, 99.95))
+        image = skimage.exposure.rescale_intensity(image, in_range=(vmin, vmax))
+        
+        image = skimage.img_as_ubyte(image)
+        image_path = image_path[:image_path.index('.')]+'.png'
+
+    skimage.io.imsave(image_path, image)
 
 #################################
 # RUN SOME PROCESS
@@ -103,15 +134,22 @@ def runSomething(message):
     logger = logging.getLogger(__name__)
 
     # Parse your message somehow to pull out a name variable that's going to make sense to you when you want to look at the logs later
-    
-    # Add a handler with 
-    # watchtowerlogger=watchtower.CloudWatchLogHandler(log_group=LOG_GROUP_NAME, stream_name=str(YourVariable),create_log_group=False)
-    # logger.addHandler(watchtowerlogger)
+    group_to_run = message["group"]
+    groupkeys = list(group_to_run.keys())
+    groupkeys.sort()
+    metadataID = '-'.join(groupkeys)
 
-    # See if this is a message you've already handled, if you've so chosen    
-    # First, build a variable called remoteOut that equals your unique prefix of where your output should be 
-    # Then check if there are too many files
+    # Add a handler with 
+    watchtowerlogger=watchtower.CloudWatchLogHandler(log_group=LOG_GROUP_NAME, stream_name=str(metadataID),create_log_group=False)
+    logger.addHandler(watchtowerlogger)
+
     
+    remoteOut = os.path.join(message["output_directory"],metadataID)
+    localOut = os.path.join(LOCAL_OUTPUT,metadataID)
+    if not os.path.exists(localOut):
+          os.makedirs(localOut)
+    
+    # See if this is a message you've already handled, if you've so chosen
     if CHECK_IF_DONE_BOOL.upper() == 'TRUE':
         try:
             s3client=boto3.client('s3')
@@ -128,17 +166,81 @@ def runSomething(message):
         except KeyError: #Returned if that folder does not exist
             pass	
 
-    # Build and run your program's command
-    # ie cmd = my-program --my-flag-1 True --my-flag-2 VARIABLE
-    # you should assign the variable "localOut" to the output location where you expect your program to put files
+    # Let's do this, shall we?
+    s3 = boto3.resource('s3')
+    # get the config, put it somewhere called configlocation(TODO), and load it
+    config = loadConfig(configlocation)
+    channels = config["images"]["channels"]
+    
+    # get the index csv, put it somewhere called csvlocation
+    #TODO
+
+    # parse the csv
+    df = pandas.read_csv(csvlocation)
+    for eachkey in groupkeys:
+       df = df[df[eachkey]==group_to_run[eachkey]]
+    sitecount = df.shape[0]
+    
+    # get the location files based on the parsed index file
+    #TODO
+
+    # get the image files based on the parsed index file (TODO)
+    """
+    #This is from DCP, needs to be fixed for DDP
+    for channel in channels:
+        for field in range(df.shape[0]):
+            full_old_file_name = os.path.join(list(df['PathName_'+channel])[field],list(df['FileName_'+channel])[field])
+            prefix_on_bucket = full_old_file_name.split(DATA_ROOT)[1][1:]
+            new_file_name = os.path.join(localIn,prefix_on_bucket)
+            if not os.path.exists(os.path.split(new_file_name)[0]):
+                os.makedirs(os.path.split(new_file_name)[0])
+                printandlog('made directory '+os.path.split(new_file_name)[0],logger)
+            if not os.path.exists(new_file_name):
+                s3.meta.client.download_file(AWS_BUCKET,prefix_on_bucket,new_file_name)
+                downloaded_files.append(new_file_name)
+    """
+
+    do_illum = message["apply_illum"].lower() == 'true'
+    
+    # if doing illum, get the illum files based on the input message, and make a dictionary for their channel mapping
+    if do_illum:
+        illum_dict = {}
+        #Go to the illum topdir, figure what files are there
+        #Map them to our channels
+        #Get the files, put locations in the dictionary
+
+    do_preprocess = message["preprocess"].lower() == 'true'
+
+    if do_illum or do_preprocess:
+        #see if we can chuck the forloops later, just trying to figure out what we actually need to do
+        for eachchannel in channels:
+            if do_illum:
+                illum_file = illum_dict[eachchannel]
+            else:
+                illum_file = None
+            for eachimage in df[eachchannel]: 
+                preprocess_image(eachimage,illum_file=illum_file,preprocess=do_preprocess)
+            if do_preprocess:
+                sample_file_name = df[eachchannel][0]
+                extension = sample_file_name[sample_file_name.index('.'):]
+                if extension!= '.png':
+                    df[eachchannel].replace(extension,'.png',regex=True,inplace=True)
+
+    df.to_csv(csvlocation,index=False)
+
+    cmd = "python3 deepprofiler --root=ourroot --config=ourconfig profile" #TODO - fix root and config here
 
     print('Running', cmd)
     logger.info(cmd)
     subp = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     monitorAndLog(subp,logger)
 
-    # Figure out a done condition - a number of files being created, a particular file being created, an exit code, etc. 
-    # Set its success to the boolean variable `done`
+    # Check if we have the expected number of sites, and if so, say done
+    # I don't know what happens when a site has 0 cells (or if it's possible for that to happen here)
+    # If we figure out a site can have 0 cells, and if so that it does not make an npz, we'll have to do something
+    # I suspect in that case the right thing will be to match the glob to the expected site list, then query the locations file for any missing sites
+    nsites = len(glob.glob(os.path.join(localOut,'outputs','results','features','**','*.npz'),recursive=True))
+    done = nsites == sitecount
     
     # Get the outputs and move them to S3
     if done:
