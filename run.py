@@ -1,7 +1,6 @@
 from __future__ import print_function
 import os, sys
 import boto3
-import copy
 import datetime
 import json
 import time
@@ -355,8 +354,7 @@ def submitJob():
 
     # Step 1: Read the job configuration file
     jobInfo = loadConfig(sys.argv[2])
-    templateMessage = copy.deepcopy(jobInfo)
-    del templateMessage["groups"]
+    templateMessage = {eachkey:jobInfo[eachkey] for eachkey in jobInfo.keys() if eachkey != "groups" and "_comment" not in eachkey}
 
     # Step 2: Reach the queue and schedule tasks
     print('Contacting queue')
