@@ -1,6 +1,7 @@
 from __future__ import print_function
 import os, sys
 import boto3
+import copy
 import datetime
 import json
 import time
@@ -354,19 +355,15 @@ def submitJob():
 
     # Step 1: Read the job configuration file
     jobInfo = loadConfig(sys.argv[2])
-    if 'output_structure' not in jobInfo.keys(): #backwards compatibility for 1.0.0
-        jobInfo["output_structure"]=''
-    templateMessage = {'Metadata': '', 
-        'input_location': jobInfo["input_location"],
-        'job_flag_1': jobInfo["job_flag_1"]
-        }
+    templateMessage = copy.deepcopy(jobInfo)
+    del templateMessage["groups"]
 
     # Step 2: Reach the queue and schedule tasks
     print('Contacting queue')
     queue = JobQueue()
     print('Scheduling tasks')
     for batch in jobInfo["groups"]:
-        templateMessage["Metadata"] = batch
+        templateMessage["group"] = batch
         queue.scheduleBatch(templateMessage)
     print('Job submitted. Check your queue')
 
