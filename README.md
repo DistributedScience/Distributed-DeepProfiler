@@ -1,10 +1,6 @@
-# Distributed-Something
-Run encapsulated docker containers that do... something in the Amazon Web Services infrastructure.
-It could be [CellProfiler](https://github.com/CellProfiler/Distributed-CellProfiler) or [Fiji](https://github.com/CellProfiler/Distributed-Fiji) or really whatever you want.
+# Distributed-DeepProfiler
+Run encapsulated docker containers that run [DeepProfiler](https://github.com/cytomining/DeepProfiler) in the Amazon Web Services infrastructure.
 
-[Here's how you adapt this to whatever you need to Distribute](https://github.com/bethac07/Distributed-Something/wiki)
-
-This code is an example of how to use AWS distributed infrastructure for running anything dockerized.
 The configuration of the AWS resources is done using boto3 and the awscli. The worker is written in Python 
 and is encapsulated in a docker container. There are four AWS components that are minimally 
 needed to run distributed jobs:
