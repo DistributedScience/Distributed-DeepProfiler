@@ -1,6 +1,6 @@
-user = user
-project = distributed-something
-tag = sometag
+user = bethcimini
+project = distributed-deepprofiler
+tag = latest
 
 .DEFAULT_GOAL: build
 build:

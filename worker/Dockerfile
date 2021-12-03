@@ -6,7 +6,7 @@
 #
 
 
-FROM someuser/somedocker:sometag
+FROM michaelbornholdt/deep_profiler:jamboree
 
 # Install S3FS 
 
@@ -45,7 +45,7 @@ RUN python3.8 -m pip install boto3
 
 RUN python3.8 -m pip install watchtower
 
-# Install pandas for optional file downloading
+# Install pandas 
 
 RUN python3.8 -m pip install pandas
 
@@ -53,7 +53,7 @@ RUN python3.8 -m pip install pandas
 
 RUN mkdir -p /home/ubuntu/
 WORKDIR /home/ubuntu
-COPY cp-worker.py .
+COPY dp-worker.py .
 COPY instance-monitor.py .
 COPY run-worker.sh .
 RUN chmod 755 run-worker.sh
