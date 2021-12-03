@@ -1,17 +1,27 @@
 {
-  "_comment1": "Relative to the root of your S3 bucket",
-  "root_path": "projects/2021_12_03_DDPTesting/workspace/DDPfiles/inputs",
+  "_comment1": "project_path is to the root of your S3 bucket", 
+  "_comment2": "illum_path,root_path and output_directory to project_path",
+  "_comment3": "All other paths relative to root_path",
+  "project_path": "projects/2021_12_03_DDPTesting/workspace/DDPfiles/inputs",
+  "_comment4":"If you set apply_illum as True, you must set illum_path, and 'Metadata_Plate' must be a key in your groups dictionary",
+  "apply_illum":"True",
+  "illum_path":"2021_12_03_Batch1/illum/",
+  "preprocess":"True",
   "experiment_name":"2021_12_03_Batch1",
-  "config_file": "config/config.json",
-  "_comment2": "You probably don't need to change these, but if you do, you can. We may not need some at all.",
+  "batch_name":"2021_12_03_Batch1",
+  "_comment5": "You probably don't need to change these, but if you do, you can. We may not need some at all.",
   "default_parameters": {
+    "root_path": "workspace/DDPfiles/inputs",
+    "output_directory":"workspace/DDPfiles/outputs",
     "single_cells": "locations",
     "index_file":"metadata/index.csv",
+    "config_file": "config/config.json",
     "cores":0,
     "gpu":0,
-    "logging":""
+    "logging":"",
+    "objectname_used_for_locations":"Nuclei"
   },
-  "_comment3": "The following groups are individual tasks, and each will be run in parallel",
+  "_comment6": "The following groups are individual tasks, and each will be run in parallel",
   "groups": [
     {"Metadata_Plate": "Week1_22141", "Metadata_Well": "B02"},
     {"Metadata_Plate": "Week1_22141", "Metadata_Well": "B03"},
