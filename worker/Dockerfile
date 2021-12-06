@@ -35,19 +35,19 @@ RUN make install
 
 # Install AWS CLI
 
-RUN python3.8 -m pip install awscli 
+RUN python3 -m pip install awscli 
 
 # Install boto3
 
-RUN python3.8 -m pip install boto3
+RUN python3 -m pip install boto3
 
 # Install watchtower for logging
 
-RUN python3.8 -m pip install watchtower
+RUN python3 -m pip install watchtower
 
 # Install pandas 
 
-RUN python3.8 -m pip install pandas
+RUN python3 -m pip install pandas
 
 # SETUP NEW ENTRYPOINT
 
