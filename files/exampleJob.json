@@ -2,10 +2,9 @@
   "_comment1": "project_path is to the root of your S3 bucket", 
   "_comment2": "illum_path,root_path and output_directory to project_path",
   "_comment3": "All other paths relative to root_path",
-  "project_path": "projects/2021_12_03_DDPTesting/workspace/DDPfiles/inputs",
-  "_comment4":"If you set apply_illum as True, you must set illum_path, and 'Metadata_Plate' must be a key in your groups dictionary",
+  "project_path": "projects/2021_12_03_DDPTesting",
+  "_comment4":"If you set apply_illum as True, your files must be in project_path/batch_name/illum/PLATE, and 'Metadata_Plate' must be a key in your groups dictionary",
   "apply_illum":"True",
-  "illum_path":"2021_12_03_Batch1/illum/",
   "preprocess":"True",
   "experiment_name":"2021_12_03_Batch1",
   "batch_name":"2021_12_03_Batch1",
@@ -19,7 +18,7 @@
     "cores":0,
     "gpu":0,
     "logging":"",
-    "objectname_used_for_locations":"Nuclei"
+    "filename_used_for_locations":"Metadata_Plate/Metadata_Well-Metadata_Site-Nuclei.csv"
   },
   "_comment6": "The following groups are individual tasks, and each will be run in parallel",
   "groups": [
