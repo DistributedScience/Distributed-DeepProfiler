@@ -10,7 +10,7 @@
   "batch_name":"2021_12_03_Batch1",
   "_comment5": "You probably don't need to change these, but if you do, you can. We may not need some at all.",
   "default_parameters": {
-    "_comment6": "The folder that, inside a experiment_name folder, has 'inputs'"
+    "_comment6": "The folder that, inside a experiment_name folder, has 'inputs'",
     "root_path": "workspace/DDPfiles",
     "output_directory":"outputs",
     "single_cells": "locations",
