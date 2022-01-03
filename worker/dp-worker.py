@@ -92,6 +92,8 @@ def loadConfig(configFile):
 
 def download_data(args):
     bucket,bucket_prefix,local_prefix = args
+    if not os.path.exists(os.path.split(local_prefix)[0]):
+        os.makedirs(os.path.split(local_prefix)[0])
     s3temp = boto3.client("s3")
     s3temp.meta.client.download_file(bucket,bucket_prefix,local_prefix)
 
@@ -195,11 +197,13 @@ def runSomething(message):
 
     # Let's do this, shall we?
     s3 = boto3.resource("s3")
-    remote_root = os.path.join(message["project_path"],message["default_parameters"]["root_path"])
+    remote_root = os.path.join(message["project_path"],message["default_parameters"]["root_path"],message["experiment_name"],"inputs")
     
     # get the config, put it somewhere called config_location, and load it
     remote_config = os.path.join(remote_root,message["default_parameters"]["config_file"])
     config_location = os.path.join(localIn,"inputs",message["default_parameters"]["config_file"])
+    if not os.path.exists(os.path.split(config_location)[0]):
+          os.makedirs(os.path.split(config_location)[0])
     s3.meta.client.download_file(AWS_BUCKET,remote_config,config_location)
     config = loadConfig(config_location)
     printandlog("Loaded config file")
@@ -211,6 +215,8 @@ def runSomething(message):
     # get the index csv, put it somewhere called csv_location
     remote_csv = os.path.join(remote_root,message["default_parameters"]["index_file"])
     csv_location = os.path.join(localIn,"inputs",message["index_file"])
+    if not os.path.exists(os.path.split(csv_location)[0]):
+          os.makedirs(os.path.split(csv_location)[0])
     s3.meta.client.download_file(AWS_BUCKET,remote_csv,csv_location)
     printandlog("Downloaded index file")
 
@@ -224,6 +230,8 @@ def runSomething(message):
     # get the location files based on the parsed index file
     remote_location_folder = os.path.join(remote_root,message["default_parameters"]["single_cells"])
     local_location_folder = os.path.join(localIn,"inputs/locations")
+    if not os.path.exists(os.path.split(local_location_folder)[0]):
+          os.makedirs(os.path.split(local_location_folder)[0])
     location_file_mapping = message["default_parameters"]["filename_used_for_locations"]
     df_metadata_keys = [x for x in df.columns if "Metadata_" in x if x in location_file_mapping]
     to_run = []
