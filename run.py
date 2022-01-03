@@ -210,19 +210,12 @@ def generateUserData(ecsConfigFile,dockerBaseSize):
     config_str = '#!/bin/bash \n'
     config_str += 'sudo yum install -y aws-cli \n'
     config_str += 'sudo yum install -y awslogs \n'
-    config_str += 'aws s3 cp '+ecsConfigFile+' /etc/ecs/ecs.config'
-
-    boothook_str = '#!/bin/bash \n'
-    boothook_str += "echo 'OPTIONS="+'"${OPTIONS} --storage-opt dm.basesize='+str(dockerBaseSize)+'G"'+"' >> /etc/sysconfig/docker"
+    config_str += 'sudo aws s3 cp '+ecsConfigFile+' /etc/ecs/ecs.config'
 
     config = MIMEText(config_str, _subtype='x-shellscript')
     config.add_header('Content-Disposition', 'attachment',filename='config_temp.txt')
 
-    boothook = MIMEText(boothook_str, _subtype='cloud-boothook')
-    boothook.add_header('Content-Disposition', 'attachment',filename='boothook_temp.txt')
-
     pre_user_data = MIMEMultipart()
-    pre_user_data.attach(boothook)
     pre_user_data.attach(config)
 
     try: #Python2
