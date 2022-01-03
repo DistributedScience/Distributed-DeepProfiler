@@ -39,10 +39,6 @@ if "NECESSARY_STRING" not in os.environ:
     NECESSARY_STRING = False
 else:
     NECESSARY_STRING = os.environ["NECESSARY_STRING"]
-if "DOWNLOAD_FILES" not in os.environ:
-    DOWNLOAD_FILES = False
-else:
-    DOWNLOAD_FILES = os.environ["DOWNLOAD_FILES"]
 
 #################################
 # CLASS TO HANDLE THE SQS QUEUE
@@ -147,7 +143,7 @@ class Parallel():
         self.pool.join()    
 
 #################################
-# RUN SOME PROCESS
+# RUN DEEP PROFILER
 #################################
 
 def runSomething(message):
@@ -172,7 +168,7 @@ def runSomething(message):
     logger.addHandler(watchtowerlogger)
 
     
-    remoteOut = os.path.join(message["output_directory"],metadataID)
+    remoteOut = os.path.join(message["default_parameters"]["output_directory"],metadataID)
     localIn = os.path.join(LOCAL_OUTPUT,metadataID)
     if not os.path.exists(localIn):
           os.makedirs(localIn)
@@ -199,21 +195,21 @@ def runSomething(message):
 
     # Let's do this, shall we?
     s3 = boto3.resource("s3")
-    remote_root = os.path.join(message["project_path"],message["root_path"])
+    remote_root = os.path.join(message["project_path"],message["default_parameters"]["root_path"])
     
     # get the config, put it somewhere called config_location, and load it
-    remote_config = os.path.join(remote_root,message["config_file"])
-    config_location = os.path.join(localIn,"inputs",message["config_file"])
+    remote_config = os.path.join(remote_root,message["default_parameters"]["config_file"])
+    config_location = os.path.join(localIn,"inputs",message["default_parameters"]["config_file"])
     s3.meta.client.download_file(AWS_BUCKET,remote_config,config_location)
     config = loadConfig(config_location)
     printandlog("Loaded config file")
     
-    process = Parallel(config, numProcs=message["cores"])
+    process = Parallel(config, numProcs=message["default_parameters"]["cores"])
     
     channels = config["images"]["channels"]
     
     # get the index csv, put it somewhere called csv_location
-    remote_csv = os.path.join(remote_root,message["index_file"])
+    remote_csv = os.path.join(remote_root,message["default_parameters"]["index_file"])
     csv_location = os.path.join(localIn,"inputs",message["index_file"])
     s3.meta.client.download_file(AWS_BUCKET,remote_csv,csv_location)
     printandlog("Downloaded index file")
@@ -226,9 +222,9 @@ def runSomething(message):
     printandlog("Parsed CSV, found "+str(sitecount)+" sites to run")
     
     # get the location files based on the parsed index file
-    remote_location_folder = os.path.join(remote_root,"locations")
+    remote_location_folder = os.path.join(remote_root,message["default_parameters"]["single_cells"])
     local_location_folder = os.path.join(localIn,"inputs/locations")
-    location_file_mapping = message["filename_used_for_locations"]
+    location_file_mapping = message["default_parameters"]["filename_used_for_locations"]
     df_metadata_keys = [x for x in df.columns if "Metadata_" in x if x in location_file_mapping]
     to_run = []
     #may need to parallelize this better later, for now let's get it running
@@ -299,7 +295,7 @@ def runSomething(message):
     monitorAndLog(subp,logger)
 
     # Check if we have the expected number of sites, and if so, say done
-    # I don't know what happens when a site has 0 cells (or if it"s possible for that to happen here)
+    # I don't know what happens when a site has 0 cells (or if it's possible for that to happen here)
     # If we figure out a site can have 0 cells, and if so that it does not make an npz, we'll have to do something
     # I suspect in that case the right thing will be to match the glob to the expected site list, then query the locations file for any missing sites
     nsites = len(glob.glob(os.path.join(localOut,"outputs","results","features","**","*.npz"),recursive=True))
