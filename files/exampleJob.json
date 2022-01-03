@@ -1,6 +1,6 @@
 {
   "_comment1": "project_path is to the root of your S3 bucket", 
-  "_comment2": "illum_path,root_path and output_directory to project_path",
+  "_comment2": "illum_path and root_path are relative to project_path",
   "_comment3": "All other paths relative to root_path",
   "project_path": "projects/2021_12_03_DDPTesting",
   "_comment4":"If you set apply_illum as True, your files must be in project_path/batch_name/illum/PLATE, and 'Metadata_Plate' must be a key in your groups dictionary",
@@ -10,8 +10,9 @@
   "batch_name":"2021_12_03_Batch1",
   "_comment5": "You probably don't need to change these, but if you do, you can. We may not need some at all.",
   "default_parameters": {
-    "root_path": "workspace/DDPfiles/inputs",
-    "output_directory":"workspace/DDPfiles/outputs",
+    "_comment6": "The folder that, inside a experiment_name folder, has 'inputs'"
+    "root_path": "workspace/DDPfiles",
+    "output_directory":"outputs",
     "single_cells": "locations",
     "index_file":"metadata/index.csv",
     "config_file": "config/config.json",
