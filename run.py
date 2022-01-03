@@ -581,3 +581,6 @@ if __name__ == '__main__':
         startCluster()
     elif sys.argv[1] == 'monitor':
         monitor()
+    else:
+        print('Use: run.py setup | submitJob | startCluster | monitor')
+        sys.exit()
