@@ -91,11 +91,11 @@ def loadConfig(configFile):
     return data
 
 def download_data(args):
-    bucket,bucket_prefix,local_prefix = args
+    bucket,bucket_prefix,local_prefix = args[0]
     if not os.path.exists(os.path.split(local_prefix)[0]):
-        os.makedirs(os.path.split(local_prefix)[0])
+        os.makedirs(os.path.split(local_prefix)[0],exist_ok=True)
     s3temp = boto3.client("s3")
-    s3temp.meta.client.download_file(bucket,bucket_prefix,local_prefix)
+    s3temp.download_file(bucket,bucket_prefix,local_prefix)
 
 def file_download_generator(df,bucketname):
     for i, row in df.iterrows():
@@ -173,10 +173,10 @@ def runSomething(message):
     remoteOut = os.path.join(message["default_parameters"]["output_directory"],metadataID)
     localIn = os.path.join(LOCAL_OUTPUT,metadataID)
     if not os.path.exists(localIn):
-          os.makedirs(localIn)
+          os.makedirs(localIn,exist_ok=True)
     localOut = os.path.join(LOCAL_OUTPUT,metadataID,"outputs")
     if not os.path.exists(localOut):
-          os.makedirs(localOut)
+          os.makedirs(localOut,exist_ok=True)
     
     # See if this is a message you've already handled, if you've so chosen
     if CHECK_IF_DONE_BOOL.upper() == "TRUE":
@@ -196,15 +196,15 @@ def runSomething(message):
             pass	
 
     # Let's do this, shall we?
-    s3 = boto3.resource("s3")
+    s3 = boto3.client("s3")
     remote_root = os.path.join(message["project_path"],message["default_parameters"]["root_path"],message["experiment_name"],"inputs")
     
     # get the config, put it somewhere called config_location, and load it
     remote_config = os.path.join(remote_root,message["default_parameters"]["config_file"])
     config_location = os.path.join(localIn,"inputs",message["default_parameters"]["config_file"])
     if not os.path.exists(os.path.split(config_location)[0]):
-          os.makedirs(os.path.split(config_location)[0])
-    s3.meta.client.download_file(AWS_BUCKET,remote_config,config_location)
+          os.makedirs(os.path.split(config_location)[0],exist_ok=True)
+    s3.download_file(AWS_BUCKET,remote_config,config_location)
     config = loadConfig(config_location)
     printandlog("Loaded config file",logger)
     
@@ -216,8 +216,8 @@ def runSomething(message):
     remote_csv = os.path.join(remote_root,message["default_parameters"]["index_file"])
     csv_location = os.path.join(localIn,"inputs",message["default_parameters"]["index_file"])
     if not os.path.exists(os.path.split(csv_location)[0]):
-          os.makedirs(os.path.split(csv_location)[0])
-    s3.meta.client.download_file(AWS_BUCKET,remote_csv,csv_location)
+          os.makedirs(os.path.split(csv_location)[0],exist_ok=True)
+    s3.download_file(AWS_BUCKET,remote_csv,csv_location)
     printandlog("Downloaded index file",logger)
 
     # parse the csv
@@ -231,7 +231,7 @@ def runSomething(message):
     remote_location_folder = os.path.join(remote_root,message["default_parameters"]["single_cells"])
     local_location_folder = os.path.join(localIn,"inputs/locations")
     if not os.path.exists(os.path.split(local_location_folder)[0]):
-          os.makedirs(os.path.split(local_location_folder)[0])
+          os.makedirs(os.path.split(local_location_folder)[0],exist_ok=True)
     location_file_mapping = message["default_parameters"]["filename_used_for_locations"]
     df_metadata_keys = [x for x in df.columns if "Metadata_" in x if x in location_file_mapping]
     to_run = []
@@ -253,14 +253,14 @@ def runSomething(message):
     image_location = os.path.join(localIn,"inputs","images")
     do_illum = message["apply_illum"].lower() == "true"
     if do_illum:
+        platelist = list(df['Metadata_Plate'].unique())
         remote_illum = os.path.join(message["project_path"],message["batch_name"],"illum")
-        illum_files = [x["Key"] for x in s3client.list_objects(Bucket=AWS_BUCKET,Prefix=remote_illum)["Contents"]]
+        illum_files = [x["Key"] for x in s3.list_objects(Bucket=AWS_BUCKET,Prefix=remote_illum)["Contents"]]
         illum_mapping_remote = {(eachchannel,eachplate):x for x in illum_files for eachchannel in channels for eachplate in platelist if eachchannel in x if eachplate in x}
+        illum_mapping_local = {k:os.path.join(image_location,illum_mapping_remote[k].split(message["batch_name"])[1]) for k in list(illum_mapping_remote.keys())}
         illum_mapping_remote_values = list(illum_mapping_remote.values())
-        illum_mapping_local = {k:os.path.join(image_location,illum_mapping_remote[k].split(message["batch_name"])[1]) for k in illum_mapping_remote_values}
-        #technically, this is overkill to do this again, since the sort should be identical, but it should be a short list, and it makes sure mapping is preserved
         illum_mapping_local_values = [os.path.join(image_location,k.split(message["batch_name"])[1]) for k in illum_mapping_remote_values]
-        illum_df = pandas.DataFrame({"remote":illum_mapping_remote,"local":illum_mapping_local_values},columns=["remote","local"])
+        illum_df = pandas.DataFrame({"remote":illum_mapping_remote_values,"local":illum_mapping_local_values},columns=["remote","local"])
         to_dl = file_download_generator(illum_df,AWS_BUCKET)
         process.compute(download_data,to_dl)
         printandlog("Downloaded illum data",logger)
@@ -279,7 +279,6 @@ def runSomething(message):
         #see if we can chuck the forloops later for Parallel (TODO)
         #just trying to figure out what we actually need to do at first
         for eachchannel in channels:
-            platelist = df["Metadata_Plate"].unique()
             for eachplate in platelist:
                 if do_illum:
                     illum_file = illum_mapping_local[(eachchannel,eachplate)]
