@@ -210,7 +210,7 @@ def runSomething(message):
     
     process = Parallel(config, numProcs=message["default_parameters"]["cores"])
     
-    channels = config["images"]["channels"]
+    channels = config["dataset"]["images"]["channels"]
     
     # get the index csv, put it somewhere called csv_location
     remote_csv = os.path.join(remote_root,message["default_parameters"]["index_file"])
