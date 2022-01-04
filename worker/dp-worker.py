@@ -244,7 +244,7 @@ def runSomething(message):
     location_df = pandas.DataFrame({"remote":to_run,"local":to_run})
     location_df["remote"]=remote_location_folder+"/"+location_df["remote"]
     location_df["local"]=local_location_folder+"/"+location_df["remote"]
-    to_dl = file_download_generator(location_df)
+    to_dl = file_download_generator(location_df,AWS_BUCKET)
     process.compute(download_data,to_dl)
     printandlog("Downloaded location files",logger)
 
@@ -261,7 +261,7 @@ def runSomething(message):
         #technically, this is overkill to do this again, since the sort should be identical, but it should be a short list, and it makes sure mapping is preserved
         illum_mapping_local_values = [os.path.join(image_location,k.split(message["batch_name"])[1]) for k in illum_mapping_remote_values]
         illum_df = pandas.DataFrame({"remote":illum_mapping_remote,"local":illum_mapping_local_values},columns=["remote","local"])
-        to_dl = file_download_generator[illum_df]
+        to_dl = file_download_generator(illum_df,AWS_BUCKET)
         process.compute(download_data,to_dl)
         printandlog("Downloaded illum data",logger)
 
@@ -269,7 +269,7 @@ def runSomething(message):
         temp_df = pandas.DataFrame()
         temp_df["remote_"+eachchannel] = remote_image+"/"+df[eachchannel]
         temp_df["local_"+eachchannel] = image_location+"/"+df[eachchannel]
-        to_dl = file_download_generator[temp_df]
+        to_dl = file_download_generator(temp_df,AWS_BUCKET)
         process.compute(download_data,to_dl)
         printandlog("Downloaded "+eachchannel,logger)
 
