@@ -4,6 +4,7 @@ import json
 import logging
 import multiprocessing
 import os
+import shutil
 import subprocess
 import time
 
@@ -11,9 +12,7 @@ import boto3
 import numpy
 import pandas
 import scipy.stats
-import skimage.exposure
-import skimage.io
-import skimage.transform
+import skimage, skimage.exposure, skimage.io, skimage.transform
 import watchtower
 
 #################################
@@ -112,13 +111,18 @@ def preprocess_image(args):
 
     if illum_file != None:
         illum = numpy.load(illum_file)
+        image = skimage.img_as_float(image)
         image = image/illum
+        image = skimage.img_as_int(image)
     if preprocess:
         vmin, vmax = scipy.stats.scoreatpercentile(image, (0.05, 99.95))
         image = skimage.exposure.rescale_intensity(image, in_range=(vmin, vmax))
         
         image = skimage.img_as_ubyte(image)
         image_path = image_path[:image_path.index(".")]+".png"
+        image_path = image_path.replace("inputs","outputs/compressed")
+        if not os.path.exists(os.path.split(image_path)[0]):
+            os.makedirs(os.path.split(image_path)[0],exist_ok=True)
 
     skimage.io.imsave(image_path, image)
     return image_path
@@ -156,20 +160,19 @@ def runSomething(message):
     group_to_run = message["group"]
     groupkeys = list(group_to_run.keys())
     groupkeys.sort()
-    metadataID = "-".join(groupkeys)
+    metadataID = "-".join([group_to_run[x] for x in groupkeys])
 
     # Add a handler with 
     watchtowerlogger=watchtower.CloudWatchLogHandler(log_group=LOG_GROUP_NAME, stream_name=str(metadataID),create_log_group=False)
     logger.addHandler(watchtowerlogger)
 
-    
-    remoteOut = os.path.join(message["default_parameters"]["output_directory"],metadataID)
+    remoteOut = os.path.join(message["project_path"],message["default_parameters"]["root_path"],message["experiment_name"],message["default_parameters"]["output_directory"],metadataID)
     localIn = os.path.join(LOCAL_OUTPUT,metadataID)
     if not os.path.exists(localIn):
-          os.makedirs(localIn,exist_ok=True)
+        os.makedirs(localIn,exist_ok=True)
     localOut = os.path.join(LOCAL_OUTPUT,metadataID,"outputs")
     if not os.path.exists(localOut):
-          os.makedirs(localOut,exist_ok=True)
+        os.makedirs(localOut,exist_ok=True)
     
     # See if this is a message you've already handled, if you've so chosen
     if CHECK_IF_DONE_BOOL.upper() == "TRUE":
@@ -196,7 +199,7 @@ def runSomething(message):
     remote_config = os.path.join(remote_root,message["default_parameters"]["config_file"])
     config_location = os.path.join(localIn,"inputs",message["default_parameters"]["config_file"])
     if not os.path.exists(os.path.split(config_location)[0]):
-          os.makedirs(os.path.split(config_location)[0],exist_ok=True)
+        os.makedirs(os.path.split(config_location)[0],exist_ok=True)
     s3.download_file(AWS_BUCKET,remote_config,config_location)
     config = loadConfig(config_location)
     printandlog("Loaded config file",logger)
@@ -209,14 +212,14 @@ def runSomething(message):
     remote_csv = os.path.join(remote_root,message["default_parameters"]["index_file"])
     csv_location = os.path.join(localIn,"inputs",message["default_parameters"]["index_file"])
     if not os.path.exists(os.path.split(csv_location)[0]):
-          os.makedirs(os.path.split(csv_location)[0],exist_ok=True)
+        os.makedirs(os.path.split(csv_location)[0],exist_ok=True)
     s3.download_file(AWS_BUCKET,remote_csv,csv_location)
     printandlog("Downloaded index file",logger)
 
     # parse the csv
     df = pandas.read_csv(csv_location)
     for eachkey in groupkeys:
-       df = df[df[eachkey]==group_to_run[eachkey]]
+        df = df[df[eachkey]==group_to_run[eachkey]]
     sitecount = df.shape[0]
     printandlog("Parsed CSV, found "+str(sitecount)+" sites to run",logger)
     
@@ -224,7 +227,7 @@ def runSomething(message):
     remote_location_folder = os.path.join(remote_root,message["default_parameters"]["single_cells"])
     local_location_folder = os.path.join(localIn,"inputs/locations")
     if not os.path.exists(os.path.split(local_location_folder)[0]):
-          os.makedirs(os.path.split(local_location_folder)[0],exist_ok=True)
+        os.makedirs(os.path.split(local_location_folder)[0],exist_ok=True)
     location_file_mapping = message["default_parameters"]["filename_used_for_locations"]
     df_metadata_keys = [x for x in df.columns if "Metadata_" in x if x in location_file_mapping]
     to_run = []
@@ -235,8 +238,8 @@ def runSomething(message):
             formatted = formatted.replace(eachmetadata,row[eachmetadata])
         to_run.append(formatted)
     location_df = pandas.DataFrame({"remote":to_run,"local":to_run})
-    location_df["remote"]=remote_location_folder+"/"+location_df["remote"]
     location_df["local"]=local_location_folder+"/"+location_df["remote"]
+    location_df["remote"]=remote_location_folder+"/"+location_df["remote"]  
     to_dl = file_download_generator(location_df,AWS_BUCKET)
     process.compute(download_data,to_dl)
     printandlog("Downloaded location files",logger)
@@ -265,7 +268,7 @@ def runSomething(message):
         to_dl = file_download_generator(temp_df,AWS_BUCKET)
         process.compute(download_data,to_dl)
         printandlog("Downloaded "+eachchannel,logger)
-        df[eachchannel] = temp_df["local_"+eachchannel]
+        df["local_"+eachchannel] = temp_df["local_"+eachchannel]
 
     do_preprocess = message["preprocess"].lower() == "true"
 
@@ -278,17 +281,15 @@ def runSomething(message):
                     illum_file = illum_mapping_local[(eachchannel,eachplate)]
                 else:
                     illum_file = None
-                for eachimage in df[eachchannel]: 
+                for eachimage in df["local_"+eachchannel]: 
                     preprocess_image([eachimage,illum_file,do_preprocess])
-                if do_preprocess:
-                    sample_file_name = list(df[eachchannel])[0]
-                    extension = sample_file_name[sample_file_name.index("."):]
-                    if extension!= ".png":
-                        df[eachchannel].replace(extension,".png",regex=True,inplace=True)
+        printandlog("Preprocessed images",logger)
 
     df.to_csv(csv_location,index=False)
 
-    cmd = "python3 deepprofiler --root="+localIn+" --config="+config_location+" profile" 
+    os.chdir('../../DeepProfiler')
+
+    cmd = "python3 deepprofiler --root="+localIn+" --config="+os.path.split(config_location)[1]+" profile" 
 
     print("Running", cmd)
     logger.info(cmd)
@@ -299,7 +300,7 @@ def runSomething(message):
     # I don't know what happens when a site has 0 cells (or if it's possible for that to happen here)
     # If we figure out a site can have 0 cells, and if so that it does not make an npz, we'll have to do something
     # I suspect in that case the right thing will be to match the glob to the expected site list, then query the locations file for any missing sites
-    nsites = len(glob.glob(os.path.join(localOut,"outputs","results","features","**","*.npz"),recursive=True))
+    nsites = len(glob.glob(os.path.join(localOut,"results","features","**","*.npz"),recursive=True))
     done = nsites == sitecount
     
     # Get the outputs and move them to S3
@@ -327,18 +328,17 @@ def runSomething(message):
                 mvtries+=1
         if mvtries < 3:
             printandlog("SUCCESS",logger)
+            shutil.rmtree(localIn, ignore_errors=True)
             logger.removeHandler(watchtowerlogger)
             return "SUCCESS"
         else:
             printandlog("SYNC PROBLEM. Giving up on trying to sync "+metadataID,logger)
-            import shutil
             shutil.rmtree(localIn, ignore_errors=True)
             logger.removeHandler(watchtowerlogger)
             return "PROBLEM"
     else:
         printandlog("PROBLEM: Failed exit condition for "+metadataID,logger)
         logger.removeHandler(watchtowerlogger)
-        import shutil
         shutil.rmtree(localIn, ignore_errors=True)
         return "PROBLEM"
     
