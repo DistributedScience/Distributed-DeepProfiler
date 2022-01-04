@@ -272,6 +272,7 @@ def runSomething(message):
         to_dl = file_download_generator(temp_df,AWS_BUCKET)
         process.compute(download_data,to_dl)
         printandlog("Downloaded "+eachchannel,logger)
+        df[eachchannel] = temp_df["local_"+eachchannel]
 
     do_preprocess = message["preprocess"].lower() == "true"
 
@@ -285,9 +286,9 @@ def runSomething(message):
                 else:
                     illum_file = None
                 for eachimage in df[eachchannel]: 
-                    preprocess_image(eachimage,illum_file=illum_file,preprocess=do_preprocess)
+                    preprocess_image([eachimage,illum_file,do_preprocess])
                 if do_preprocess:
-                    sample_file_name = df[eachchannel][0]
+                    sample_file_name = list(df[eachchannel])[0]
                     extension = sample_file_name[sample_file_name.index("."):]
                     if extension!= ".png":
                         df[eachchannel].replace(extension,".png",regex=True,inplace=True)
