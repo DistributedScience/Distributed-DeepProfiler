@@ -98,7 +98,7 @@ def download_data(args):
     s3temp.meta.client.download_file(bucket,bucket_prefix,local_prefix)
 
 def file_download_generator(df,bucketname):
-    for i, row in df.iterrows:
+    for i, row in df.iterrows():
         yield [bucketname]+row.to_list()
 
 #################################
