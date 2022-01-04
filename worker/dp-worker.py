@@ -214,7 +214,7 @@ def runSomething(message):
     
     # get the index csv, put it somewhere called csv_location
     remote_csv = os.path.join(remote_root,message["default_parameters"]["index_file"])
-    csv_location = os.path.join(localIn,"inputs",message["index_file"])
+    csv_location = os.path.join(localIn,"inputs",message["default_parameters"]["index_file"])
     if not os.path.exists(os.path.split(csv_location)[0]):
           os.makedirs(os.path.split(csv_location)[0])
     s3.meta.client.download_file(AWS_BUCKET,remote_csv,csv_location)
