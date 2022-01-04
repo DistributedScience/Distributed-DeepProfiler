@@ -206,7 +206,7 @@ def runSomething(message):
           os.makedirs(os.path.split(config_location)[0])
     s3.meta.client.download_file(AWS_BUCKET,remote_config,config_location)
     config = loadConfig(config_location)
-    printandlog("Loaded config file")
+    printandlog("Loaded config file",logger)
     
     process = Parallel(config, numProcs=message["default_parameters"]["cores"])
     
@@ -218,14 +218,14 @@ def runSomething(message):
     if not os.path.exists(os.path.split(csv_location)[0]):
           os.makedirs(os.path.split(csv_location)[0])
     s3.meta.client.download_file(AWS_BUCKET,remote_csv,csv_location)
-    printandlog("Downloaded index file")
+    printandlog("Downloaded index file",logger)
 
     # parse the csv
     df = pandas.read_csv(csv_location)
     for eachkey in groupkeys:
        df = df[df[eachkey]==group_to_run[eachkey]]
     sitecount = df.shape[0]
-    printandlog("Parsed CSV, found "+str(sitecount)+" sites to run")
+    printandlog("Parsed CSV, found "+str(sitecount)+" sites to run",logger)
     
     # get the location files based on the parsed index file
     remote_location_folder = os.path.join(remote_root,message["default_parameters"]["single_cells"])
@@ -246,7 +246,7 @@ def runSomething(message):
     location_df["local"]=local_location_folder+"/"+location_df["remote"]
     to_dl = file_download_generator(location_df)
     process.compute(download_data,to_dl)
-    printandlog("Downloaded location files")
+    printandlog("Downloaded location files",logger)
 
     # get the image files based on the parsed index file 
     remote_image = os.path.join(message["project_path"],message["batch_name"],"images")
@@ -263,7 +263,7 @@ def runSomething(message):
         illum_df = pandas.DataFrame({"remote":illum_mapping_remote,"local":illum_mapping_local_values},columns=["remote","local"])
         to_dl = file_download_generator[illum_df]
         process.compute(download_data,to_dl)
-        printandlog("Downloaded illum data")
+        printandlog("Downloaded illum data",logger)
 
     for eachchannel in channels:
         temp_df = pandas.DataFrame()
@@ -271,7 +271,7 @@ def runSomething(message):
         temp_df["local_"+eachchannel] = image_location+"/"+df[eachchannel]
         to_dl = file_download_generator[temp_df]
         process.compute(download_data,to_dl)
-        printandlog("Downloaded "+eachchannel)
+        printandlog("Downloaded "+eachchannel,logger)
 
     do_preprocess = message["preprocess"].lower() == "true"
 
